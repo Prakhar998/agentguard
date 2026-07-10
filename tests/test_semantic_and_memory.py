@@ -110,5 +110,65 @@ class TestFailureMemory(unittest.TestCase):
         self.assertEqual(len(restored), 1)
 
 
+
+
+class TestAdvancedMemory(unittest.TestCase):
+    """Trajectory embeddings, hybrid retrieval, failure taxonomy."""
+
+    def _run(self, guard, run_id, kind):
+        w = guard.watch(run_id=run_id)
+        if kind == "loop":
+            for _ in range(10):
+                w.record(tool_call("search", {"q": "same"}))
+        else:  # cascade
+            for i in range(8):
+                w.record(tool_call("fetch", {"url": f"site-{'abcdefgh'[i]}"}))
+                w.record({"kind": "tool_result", "content": "refused", "error": True})
+        if w.risk > 0.5 and not w.interventions:
+            w.intervene("halt")
+        w.close()
+        return w
+
+    def _memory_with_runs(self):
+        memory = FailureMemory(embed_fn=hash_embed)
+        guard = Guard(memory=memory)
+        for i in range(3):
+            self._run(guard, f"loop_{i}", "loop")
+        for i in range(3):
+            self._run(guard, f"cascade_{i}", "cascade")
+        return memory, guard
+
+    def test_hybrid_retrieval_matches_failure_shape(self):
+        memory, guard = self._memory_with_runs()
+        self.assertEqual(len(memory), 6)
+        live = guard.watch(run_id="live_loop")
+        for _ in range(10):
+            live.record(tool_call("search", {"q": "same"}))
+        for mode in ("hybrid", "dense", "trajectory", "keyword"):
+            matches = memory.similar_failures(live, k=3, mode=mode)
+            self.assertEqual(len(matches), 3)
+            top_ids = {m["run_id"] for m in matches}
+            self.assertTrue(
+                any(rid.startswith("loop") for rid in top_ids),
+                f"{mode} retrieval missed all loop runs: {top_ids}",
+            )
+
+    def test_taxonomy_separates_failure_modes(self):
+        memory, _ = self._memory_with_runs()
+        clusters = memory.taxonomy()
+        self.assertGreaterEqual(len(clusters), 2)
+        self.assertEqual(sum(c["size"] for c in clusters), 6)
+        # at least one cluster should be pure loop or pure cascade
+        pure = [
+            c for c in clusters
+            if len({rid.split("_")[0] for rid in c["run_ids"]}) == 1
+        ]
+        self.assertTrue(pure, f"no pure cluster in {clusters}")
+
+    def test_taxonomy_empty_when_too_few_runs(self):
+        memory = FailureMemory(embed_fn=hash_embed)
+        self.assertEqual(memory.taxonomy(), [])
+
+
 if __name__ == "__main__":
     unittest.main()

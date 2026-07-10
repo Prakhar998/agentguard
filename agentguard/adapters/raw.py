@@ -50,3 +50,18 @@ def llm_output(
 
 def final(text: str = "", *, tokens: Optional[int] = None) -> Step:
     return Step(StepKind.FINAL, content=text, tokens=tokens)
+
+
+def retrieval(
+    query: str,
+    chunks: list,
+    *,
+    scores: Optional[list] = None,
+    retriever: Optional[str] = None,
+    latency_s: Optional[float] = None,
+) -> Step:
+    """A RAG retrieval event: the query and what the vector store returned."""
+    content = {"query": query, "chunks": [str(c) for c in chunks]}
+    if scores is not None:
+        content["scores"] = list(scores)
+    return Step(StepKind.RETRIEVAL, name=retriever, content=content, latency_s=latency_s)

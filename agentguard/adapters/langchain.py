@@ -83,6 +83,7 @@ class AgentGuardCallback(BaseCallbackHandler):
         self.watcher = self.guard.watch(run_id=run_id)
         self.auto_intervene = auto_intervene
         self._started: Dict[UUID, float] = {}
+        self._queries: Dict[UUID, str] = {}
 
     # -- plumbing ------------------------------------------------------
 
@@ -149,6 +150,33 @@ class AgentGuardCallback(BaseCallbackHandler):
         self._record(
             Step(
                 StepKind.LLM_OUTPUT,
+                content=repr(error)[:500],
+                error=True,
+                latency_s=self._elapsed(run_id),
+            )
+        )
+
+    # -- retriever (RAG) --------------------------------------------------
+
+    def on_retriever_start(self, serialized, query, *, run_id, **kwargs) -> None:
+        self._started[run_id] = time.time()
+        self._queries[run_id] = str(query)
+
+    def on_retriever_end(self, documents, *, run_id, **kwargs) -> None:
+        chunks = [getattr(d, "page_content", str(d))[:1000] for d in (documents or [])]
+        self._record(
+            Step(
+                StepKind.RETRIEVAL,
+                content={"query": self._queries.pop(run_id, ""), "chunks": chunks},
+                latency_s=self._elapsed(run_id),
+            )
+        )
+
+    def on_retriever_error(self, error, *, run_id, **kwargs) -> None:
+        self._queries.pop(run_id, None)
+        self._record(
+            Step(
+                StepKind.RETRIEVAL,
                 content=repr(error)[:500],
                 error=True,
                 latency_s=self._elapsed(run_id),

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentguard"
-version = "0.1.0"
+version = "0.2.0"
 description = "Predict LLM-agent-run failures in real time — and intervene before the tokens are spent"
 readme = "README.md"
 license = "MIT"
@@ -37,6 +37,9 @@ all = [
     "numpy>=1.24",
     "scikit-learn>=1.3",
 ]
+
+[project.scripts]
+agentguard = "agentguard.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/Prakhar998/agentguard"

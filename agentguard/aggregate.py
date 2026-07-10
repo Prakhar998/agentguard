@@ -20,8 +20,11 @@ from typing import Dict, Mapping, Optional, Sequence
 DEFAULT_WEIGHTS: Dict[str, float] = {
     "loop": 1.0,           # most common failure, near-deterministic signal
     "tool_cascade": 0.9,
-    "budget_drift": 0.7,
+    "budget_drift": 0.85,  # keep >= default threshold: saturated drift must be able to alarm alone
     "semantic_drift": 0.6,  # noisier signal, weight it down
+    "retrieval_drift": 0.85,
+    "grounding_gap": 0.75,
+    "goal_drift": 0.5,      # noisiest — goals are fuzzy; corroboration wanted
     "model": 1.0,           # the learned risk passes through unattenuated
 }
 

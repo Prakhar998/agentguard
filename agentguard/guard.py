@@ -47,13 +47,26 @@ def _build_predictor(spec: Union[str, Predictor]) -> Predictor:
         from .predictors.semantic_drift import SemanticDriftPredictor
 
         return SemanticDriftPredictor()
+    if name == "retrieval_drift":
+        from .predictors.retrieval_drift import RetrievalDriftPredictor
+
+        return RetrievalDriftPredictor()
+    if name == "grounding_gap":
+        from .predictors.grounding_gap import GroundingGapPredictor
+
+        return GroundingGapPredictor()
+    if name == "goal_drift":
+        from .predictors.goal_drift import GoalDriftPredictor
+
+        return GoalDriftPredictor()
     if name == "model":
         from .predictors.model import LearnedRiskPredictor
 
         return LearnedRiskPredictor()
     raise ValueError(
         f"Unknown predictor {name!r}. Built-ins: loop, tool_cascade, "
-        f"budget_drift, semantic_drift, model — or pass a Predictor instance."
+        f"budget_drift, semantic_drift, retrieval_drift, grounding_gap, "
+        f"goal_drift, model — or pass a Predictor instance."
     )
 
 
@@ -87,21 +100,27 @@ class Guard:
         self.aggregator = aggregator or Aggregator()
         self.memory = memory  # optional FailureMemory (agentguard.memory)
 
-    def watch(self, run_id: Optional[str] = None) -> "Watcher":
-        return Watcher(self, run_id=run_id)
+    def watch(self, run_id: Optional[str] = None, goal: Optional[str] = None) -> "Watcher":
+        """``goal``: the task the run is trying to accomplish — enables
+        goal-aware predictors like goal_drift."""
+        return Watcher(self, run_id=run_id, goal=goal)
 
 
 class Watcher:
     """Watches one agent run. Context manager; also usable bare."""
 
-    def __init__(self, guard: Guard, run_id: Optional[str] = None):
+    def __init__(self, guard: Guard, run_id: Optional[str] = None,
+                 goal: Optional[str] = None):
         self.guard = guard
         self.run_id = run_id or uuid.uuid4().hex[:12]
+        self.goal = goal
         self.predictors: List[Predictor] = [
             _build_predictor(spec) for spec in guard.predictor_specs
         ]
         for p in self.predictors:
             p.reset()
+            if hasattr(p, "bind"):
+                p.bind(self)
         self.history: List[Step] = []
         self.subscores: Dict[str, float] = {p.name: 0.0 for p in self.predictors}
         self.risk_trajectory: List[float] = []

@@ -93,6 +93,9 @@ python examples/failing_agent_demo.py
 | `tool_cascade` | deterministic | tool errors clustering (one error is noise, three in five steps is a cascade) |
 | `budget_drift` | deterministic | token velocity blowing past the run's own early baseline |
 | `semantic_drift` | embeddings | the run stalling (restating itself) or oscillating (A→B→A) in embedding space instead of progressing |
+| `retrieval_drift` | embeddings (RAG) | re-retrieval loops (same chunks again and again) and retrieval starvation (query→chunk relevance decaying) |
+| `grounding_gap` | embeddings (RAG) | LLM outputs drifting away from the retrieved context — a hallucination precursor, scored live |
+| `goal_drift` | embeddings | outputs wandering away from the stated goal (`guard.watch(goal="...")`) |
 | `model` | learned | the ported ProactiveGuard ensemble fusing all sub-signals into one risk |
 
 Sub-scores are fused with a weighted noisy-OR (one strong signal dominates;
@@ -127,6 +130,63 @@ learned feature attention (top 6):
 ```
 
 (In the paper, the analogous top features were WAL-fsync and heartbeat latency.)
+
+## Guarding RAG pipelines
+
+RAG agents fail in their own ways, all observable in embedding space while
+the run is live. Emit a `RETRIEVAL` step (or let the LangChain adapter's
+retriever hooks do it) and two predictors watch it:
+
+```python
+from agentguard import Guard
+from agentguard.adapters.raw import retrieval, llm_output
+
+guard = Guard(predictors=["retrieval_drift", "grounding_gap"])
+with guard.watch() as w:
+    w.record(retrieval(query, chunks))       # what the vector store returned
+    w.record(llm_output(answer, tokens=n))   # graded against those sources
+```
+
+`grounding_gap` is groundedness made *predictive*: instead of a post-hoc
+eval score, the gap between outputs and retrieved context is tracked
+against the run's own best grounding, so the hallucination spiral is
+flagged while a `reset_context` can still save the run. See it happen:
+
+```bash
+python examples/rag_failing_demo.py
+```
+
+```
+   4  re-retrieves the same chunks    0.67  ██████████████░░░░░░░░
+   5  answer drifts from sources      0.91  ████████████████████░░
+
+⛔ risk 0.91 > 0.8 — proposing reset_context
+   sub-scores: retrieval_drift=0.77, grounding_gap=1.00
+```
+
+## Backtest on your own traces
+
+```bash
+agentguard replay traces.jsonl        # your exported runs (JSONL, see below)
+agentguard replay --demo              # synthesized runs, no file needed
+```
+
+Replays historical runs through the predictors and reports the number that
+sells prediction — the same early-warning metrics as the ProactiveGuard
+paper:
+
+```
+runs replayed: 75   threshold: 0.8
+failed runs caught before the end: 100% (45 failed runs)
+early-warning lead: mean 4.2 steps, median 4 steps before the run ended
+false alarms on successful runs: 0% (30 success runs)
+```
+
+Trace format is one JSON object per line — steps plus optional outcome
+lines (`{"run_id": "r1", "outcome": "failed"}`); anything you can't export
+simply doesn't contribute. Use `--json` for machine-readable output and
+`--predictors`/`--threshold` to test configurations against history before
+changing production.
 
 ## LangChain adapter
 
@@ -164,6 +224,23 @@ Failure *signatures* (sub-score trajectory + tool-sequence tail) are embedded
 into a vector store; a new high-risk run retrieves its nearest past failures so
 the alert reads *"this looks like the 14 past runs that looped on
 search→summarize→search"* — retrieval-augmented explanation.
+
+Retrieval is **hybrid** by default: dense signature-text embeddings, a
+*trajectory embedding* of the sub-score time series (so a slow-ramp loop
+matches other slow-ramp loops by shape), and keyword overlap, fused with
+reciprocal-rank fusion. Pick one with `mode="dense" | "trajectory" | "keyword"`.
+
+Once enough failures accumulate, cluster them into a taxonomy:
+
+```python
+for cluster in memory.taxonomy():
+    print(f"{cluster['size']} runs — {cluster['exemplar']}")
+# 14 runs — dominant signal loop; loop=1.00 ...; tool tail: search -> summarize -> search
+#  6 runs — dominant signal tool_cascade; ...; tool tail: fetch -> fetch -> fetch
+```
+
+Pure-python k-means over trajectory embeddings, k chosen by silhouette —
+your agent's failure modes, named and counted.
 
 ## What AgentGuard is not
 

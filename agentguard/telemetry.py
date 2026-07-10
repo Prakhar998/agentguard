@@ -17,6 +17,7 @@ class StepKind(str, Enum):
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
     LLM_OUTPUT = "llm_output"
+    RETRIEVAL = "retrieval"   # RAG: content = {"query": str, "chunks": [str], "scores": [float]?}
     FINAL = "final"
 
 
