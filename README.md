@@ -58,13 +58,16 @@ same ensemble (five bagged attention-MLPs + a Random Forest at double weight).
 ## Install
 
 ```bash
-pip install agentguard                 # zero-dependency core
-pip install "agentguard[langchain]"    # + LangChain callback adapter
-pip install "agentguard[embeddings]"   # + sentence-transformers drift detection
-pip install "agentguard[memory]"       # + Chroma-backed failure memory
-pip install "agentguard[model]"        # + the learned risk model (numpy/sklearn)
-pip install "agentguard[mcp]"          # + the MCP server
+pip install agentguard-predict                 # zero-dependency core
+pip install "agentguard-predict[langchain]"    # + LangChain callback adapter
+pip install "agentguard-predict[embeddings]"   # + sentence-transformers drift detection
+pip install "agentguard-predict[memory]"       # + Chroma-backed failure memory
+pip install "agentguard-predict[model]"        # + the learned risk model (numpy/sklearn)
+pip install "agentguard-predict[mcp]"          # + the MCP server
 ```
+
+The distribution is `agentguard-predict` (the bare name is squatted on PyPI);
+the import is still `import agentguard`.
 
 ## The whole API is 8 lines
 
@@ -114,7 +117,7 @@ trustworthy as its calibration.
 ### The learned model
 
 ```bash
-pip install "agentguard[model]"
+pip install "agentguard-predict[model]"
 python -m agentguard.train        # bootstrap on labeled synthetic scenario runs
 ```
 
@@ -320,7 +323,7 @@ decides, with the sub-scores as the reason. Same discipline, new host.
 ## MCP server — agents that monitor themselves
 
 ```bash
-pip install "agentguard[mcp]"
+pip install "agentguard-predict[mcp]"
 claude mcp add agentguard -- agentguard mcp
 ```
 

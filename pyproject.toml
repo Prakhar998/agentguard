@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "agentguard"
-version = "0.4.0"
+name = "agentguard-predict"
+version = "0.4.1"
 description = "Predict LLM-agent-run failures in real time — and intervene before the tokens are spent"
 readme = "README.md"
 license = "MIT"

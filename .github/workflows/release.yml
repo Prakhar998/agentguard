@@ -1,7 +1,7 @@
 # Publishes to PyPI on a version tag (v0.4.0, ...) via Trusted Publishing —
 # no token stored in the repo. One-time setup on pypi.org:
 #   Account -> Publishing -> add a "pending publisher":
-#   project=agentguard, owner=Prakhar998, repo=agentguard,
+#   project=agentguard-predict, owner=Prakhar998, repo=agentguard,
 #   workflow=release.yml, environment=pypi
 name: Release
 
