@@ -1,6 +1,6 @@
 # AgentGuard
 
-[![CI](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml)
+[![CI](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml) ![Python](https://img.shields.io/badge/python-3.9%2B-blue) ![deps](https://img.shields.io/badge/core%20deps-zero-brightgreen) [![License: MIT](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 **Predict LLM-agent-run failures in real time — and intervene before the tokens are spent.**
 
@@ -11,6 +11,20 @@ the risk that the run is going off the rails, and proposes an intervention
 (halt / reset context / escalate / downgrade) **early enough for it to matter**.
 
 ![AgentGuard catching a looping agent](docs/demo.gif)
+
+| what | in one line | try it |
+|---|---|---|
+| [8-line API](#the-whole-api-is-8-lines) | wrap any agent loop, read `w.risk`, propose an intervention | `python examples/failing_agent_demo.py` |
+| [9 predictors](#predictors) | loops, error cascades, budget blowout, semantic/goal drift, RAG drift, hallucination precursors, prompt injection, a learned model | — |
+| [RAG guarding](#guarding-rag-pipelines) | re-retrieval loops + groundedness, scored live | `python examples/rag_failing_demo.py` |
+| [Multi-agent](#guarding-agent-teams-multi-agent--langgraph) | cascade prediction across an agent team; LangGraph adapter | `python examples/multiagent_demo.py` |
+| [Backtest](#backtest-on-your-own-traces) | replay your traces: catch rate, lead time, false alarms | `agentguard replay --demo` |
+| [Real-trace benchmark](#benchmarked-on-real-agent-runs) | honest numbers on 300 real SWE-agent runs | `python benchmarks/swe_agent_bench.py` |
+| [Live sidecar](#live-production-sidecar) | OTLP/OpenInference ingest + live risk dashboard | `agentguard serve` |
+| [Policies](#intervention-policies--escalation) | rules → interventions → Slack/webhook escalation | — |
+| [Claude Code hook](#guarding-coding-agents-claude-code) | hold a looping coding session for confirmation | `agentguard hook` |
+| [MCP server](#mcp-server--agents-that-monitor-themselves) | any MCP-capable agent can self-monitor | `agentguard mcp` |
+| [Failure memory](#failure-memory-rag-over-past-failures) | RAG over past failures: explain alarms, cluster failure modes | — |
 
 ## Where this comes from: ProactiveGuard
 
@@ -159,16 +173,11 @@ agentguard replay traces.jsonl        # your exported runs (JSONL, see below)
 agentguard replay --demo              # synthesized runs, no file needed
 ```
 
-Replays historical runs through the predictors and reports the number that
-sells prediction — the same early-warning metrics as the ProactiveGuard
-paper:
+Replays historical runs through the predictors and reports the numbers
+that sell prediction — the same early-warning metrics as the
+ProactiveGuard paper:
 
-```
-runs replayed: 75   threshold: 0.8
-failed runs caught before the end: 100% (45 failed runs)
-early-warning lead: mean 4.2 steps, median 4 steps before the run ended
-false alarms on successful runs: 0% (30 success runs)
-```
+![agentguard replay --demo](docs/replay-demo.gif)
 
 Trace format is one JSON object per line — steps plus optional outcome
 lines (`{"run_id": "r1", "outcome": "failed"}`); anything you can't export
@@ -254,9 +263,11 @@ mg.effective_risk("writer")   # own risk + attenuated worst-upstream risk
 mg.system_risk                # P(at least one agent takes the run down)
 ```
 
-In `python examples/multiagent_demo.py` the writer never trips its own
-predictors — but its *effective* risk climbs turns before the failure
-surfaces, because 60% of its input comes from an agent at risk 0.9.
+![AgentGuard predicting a cascade across an agent team](docs/multiagent-demo.gif)
+
+The writer never trips its own predictors — but its *effective* risk
+climbs turns before the failure surfaces, because its input comes from an
+agent at risk 0.9. The cluster-level view, kept.
 
 For LangGraph, one callback routes every event to the right per-node
 watcher via the `langgraph_node` metadata LangGraph already stamps:
@@ -281,10 +292,12 @@ Point your existing instrumentation at it — no agent code changes:
   become Steps; runs are keyed by trace id.
 * **Native**: `POST /ingest {"run_id": "...", "step": {...}}` from anywhere.
 
-The dashboard shows every concurrent run with its risk trajectory
-sparkline, a severity meter, and the dominant signal — the reactive-tools
-view, made predictive. `GET /runs` serves the same state as JSON for your
-own alerting.
+![the live dashboard](docs/dashboard.png)
+
+Every concurrent run with its risk trajectory sparkline, a severity
+meter, and the dominant signal — the reactive-tools view, made
+predictive. `GET /runs` serves the same state as JSON for your own
+alerting.
 
 ## Guarding coding agents (Claude Code)
 
@@ -363,6 +376,8 @@ your agent's failure modes, named and counted.
 
 ```bash
 python -m unittest discover -s tests   # core tests need nothing but Python
+pip install -e . numpy scikit-learn langchain-core mcp   # full suite + demos
 ```
 
-MIT licensed.
+CI runs the no-dependency matrix (3.9 / 3.11 / 3.13) plus a full-extras
+job that executes every demo end-to-end. MIT licensed.
