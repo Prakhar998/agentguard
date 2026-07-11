@@ -15,6 +15,9 @@ USAGE = """usage: agentguard <command> [args]
 commands:
   replay   backtest against historical traces:  agentguard replay traces.jsonl
            or on synthesized runs:              agentguard replay --demo
+  serve    live sidecar + dashboard (OTLP/OpenInference + native ingest)
+  hook     Claude Code hook (reads the hook event on stdin)
+  mcp      run as an MCP server (stdio) — needs agentguard[mcp]
   train    train the learned risk model:        agentguard train [--runs-per-type N]
 """
 
@@ -30,6 +33,21 @@ def main(argv: Optional[List[str]] = None) -> int:
         from .replay import main as replay_main
 
         return replay_main(rest)
+    if command == "serve":
+        from .serve import main as serve_main
+
+        return serve_main(rest)
+    if command == "hook":
+        from .hook import main as hook_main
+
+        return hook_main(rest)
+    if command == "mcp":
+        try:
+            from .mcp_server import main as mcp_main
+        except ImportError:
+            print("mcp needs the extra: pip install 'agentguard[mcp]'")
+            return 1
+        return mcp_main()
     if command == "train":
         try:
             from .train import train

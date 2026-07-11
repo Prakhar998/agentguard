@@ -25,6 +25,7 @@ DEFAULT_WEIGHTS: Dict[str, float] = {
     "retrieval_drift": 0.85,
     "grounding_gap": 0.75,
     "goal_drift": 0.5,      # noisiest — goals are fuzzy; corroboration wanted
+    "injection": 1.0,       # a confirmed payload is an alarm on its own
     "model": 1.0,           # the learned risk passes through unattenuated
 }
 

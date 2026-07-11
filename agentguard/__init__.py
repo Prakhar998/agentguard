@@ -9,14 +9,16 @@ import logging
 
 from .aggregate import Aggregator, ConformalCalibrator
 from .guard import Guard, Intervention, Watcher
+from .multi import MultiGuard
 from .telemetry import Step, StepKind
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 logging.getLogger("agentguard").addHandler(logging.NullHandler())
 
 __all__ = [
     "Guard",
+    "MultiGuard",
     "Watcher",
     "Intervention",
     "Step",

@@ -1,5 +1,7 @@
 # AgentGuard
 
+[![CI](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml/badge.svg)](https://github.com/Prakhar998/agentguard/actions/workflows/ci.yml)
+
 **Predict LLM-agent-run failures in real time — and intervene before the tokens are spent.**
 
 Every agent-observability tool today (LangSmith, Langfuse, Arize, Braintrust) is
@@ -47,6 +49,7 @@ pip install "agentguard[langchain]"    # + LangChain callback adapter
 pip install "agentguard[embeddings]"   # + sentence-transformers drift detection
 pip install "agentguard[memory]"       # + Chroma-backed failure memory
 pip install "agentguard[model]"        # + the learned risk model (numpy/sklearn)
+pip install "agentguard[mcp]"          # + the MCP server
 ```
 
 ## The whole API is 8 lines
@@ -86,6 +89,7 @@ python examples/failing_agent_demo.py
 | `retrieval_drift` | embeddings (RAG) | re-retrieval loops (same chunks again and again) and retrieval starvation (query→chunk relevance decaying) |
 | `grounding_gap` | embeddings (RAG) | LLM outputs drifting away from the retrieved context — a hallucination precursor, scored live |
 | `goal_drift` | embeddings | outputs wandering away from the stated goal (`guard.watch(goal="...")`) |
+| `injection` | deterministic | context poisoning: instruction-shaped payloads arriving in tool results and retrieved chunks ("ignore previous instructions...") — with a named-pattern audit trail |
 | `model` | learned | the ported ProactiveGuard ensemble fusing all sub-signals into one risk |
 
 Sub-scores are fused with a weighted noisy-OR (one strong signal dominates;
@@ -190,6 +194,86 @@ Every `on_tool_start/end/error` and `on_llm_end` becomes a Step — nothing else
 about your agent changes. `python examples/langchain_demo.py` runs a real
 LangChain tool-calling loop (scripted fake model, so it's keyless) and shows
 AgentGuard stopping it 11 turns before the agent's own iteration cap.
+
+## Guarding agent teams (multi-agent / LangGraph)
+
+Multi-agent failures cascade: a researcher loops, hands garbage to the
+writer, the supervisor burns budget retrying both. `MultiGuard` watches
+the team the way ProactiveGuard watched a cluster — per-agent watchers
+plus contagion along the data-flow edges you declare:
+
+```python
+from agentguard import MultiGuard
+
+mg = MultiGuard(predictors=["loop", "tool_cascade", "budget_drift"])
+mg.add_edge("researcher", "writer")     # researcher's output feeds the writer
+
+mg.record("researcher", step)
+mg.effective_risk("writer")   # own risk + attenuated worst-upstream risk
+mg.system_risk                # P(at least one agent takes the run down)
+```
+
+In `python examples/multiagent_demo.py` the writer never trips its own
+predictors — but its *effective* risk climbs turns before the failure
+surfaces, because 60% of its input comes from an agent at risk 0.9.
+
+For LangGraph, one callback routes every event to the right per-node
+watcher via the `langgraph_node` metadata LangGraph already stamps:
+
+```python
+from agentguard.adapters.langgraph import MultiAgentCallback
+
+handler = MultiAgentCallback(mg, auto_intervene="halt")
+graph.invoke(state, config={"callbacks": [handler]})
+```
+
+## Live production sidecar
+
+```bash
+agentguard serve            # dashboard at http://127.0.0.1:4318/
+```
+
+Point your existing instrumentation at it — no agent code changes:
+
+* **OTLP/HTTP JSON** with OpenInference conventions (Arize Phoenix /
+  OpenLLMetry emit this): `POST /v1/traces`. LLM / TOOL / RETRIEVER spans
+  become Steps; runs are keyed by trace id.
+* **Native**: `POST /ingest {"run_id": "...", "step": {...}}` from anywhere.
+
+The dashboard shows every concurrent run with its risk trajectory
+sparkline, a severity meter, and the dominant signal — the reactive-tools
+view, made predictive. `GET /runs` serves the same state as JSON for your
+own alerting.
+
+## Guarding coding agents (Claude Code)
+
+AgentGuard ships as a Claude Code hook — a coding session that starts
+looping on the same failing command gets held for confirmation instead of
+burning the afternoon. In `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse":  [{"matcher": "*", "hooks": [{"type": "command", "command": "agentguard hook"}]}],
+    "PostToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "agentguard hook"}]}]
+  }
+}
+```
+
+At the risk threshold the hook answers with a permission "ask" — the human
+decides, with the sub-scores as the reason. Same discipline, new host.
+
+## MCP server — agents that monitor themselves
+
+```bash
+pip install "agentguard[mcp]"
+claude mcp add agentguard -- agentguard mcp
+```
+
+Exposes `start_run` / `record_step` / `get_risk` / `explain_run` /
+`end_run` over MCP, so any MCP-capable agent can stream its own steps in
+and read its risk back — and `explain_run` retrieves similar past
+failures from the server's failure memory across runs.
 
 ## Failure memory (RAG over past failures)
 

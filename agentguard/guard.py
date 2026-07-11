@@ -59,6 +59,10 @@ def _build_predictor(spec: Union[str, Predictor]) -> Predictor:
         from .predictors.goal_drift import GoalDriftPredictor
 
         return GoalDriftPredictor()
+    if name == "injection":
+        from .predictors.injection import InjectionPredictor
+
+        return InjectionPredictor()
     if name == "model":
         from .predictors.model import LearnedRiskPredictor
 
@@ -66,7 +70,7 @@ def _build_predictor(spec: Union[str, Predictor]) -> Predictor:
     raise ValueError(
         f"Unknown predictor {name!r}. Built-ins: loop, tool_cascade, "
         f"budget_drift, semantic_drift, retrieval_drift, grounding_gap, "
-        f"goal_drift, model — or pass a Predictor instance."
+        f"goal_drift, injection, model — or pass a Predictor instance."
     )
 
 
