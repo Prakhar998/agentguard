@@ -8,17 +8,7 @@ in circles. AgentGuard is *predictive*: it watches the step stream live, scores
 the risk that the run is going off the rails, and proposes an intervention
 (halt / reset context / escalate / downgrade) **early enough for it to matter**.
 
-```
-step  agent action                      risk  meter
-   5  thinks                            0.00  ░░░░░░░░░░░░░░░░░░░░░░
-   9  searches again (same query!)      0.25  █████░░░░░░░░░░░░░░░░░
-  12  searches again (same query!)      0.50  ███████████░░░░░░░░░░░
-  15  searches again (same query!)      0.75  ████████████████░░░░░░
-  18  searches again (same query!)      1.00  ██████████████████████
-
-⛔ risk 1.00 > 0.8 — halting the run
-   dominant signal: loop = 1.00 (search→summarize→search repeating)
-```
+![AgentGuard catching a looping agent](docs/demo.gif)
 
 ## Where this comes from: ProactiveGuard
 
@@ -156,13 +146,7 @@ flagged while a `reset_context` can still save the run. See it happen:
 python examples/rag_failing_demo.py
 ```
 
-```
-   4  re-retrieves the same chunks    0.67  ██████████████░░░░░░░░
-   5  answer drifts from sources      0.91  ████████████████████░░
-
-⛔ risk 0.91 > 0.8 — proposing reset_context
-   sub-scores: retrieval_drift=0.77, grounding_gap=1.00
-```
+![AgentGuard catching a hallucinating RAG bot](docs/rag-demo.gif)
 
 ## Backtest on your own traces
 
