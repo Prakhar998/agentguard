@@ -11,3 +11,4 @@ build/
 # local-only planning notes — not part of the public repo
 BUILD_INSTRUCTIONS.md
 .claude/
+benchmarks/data/

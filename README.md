@@ -195,6 +195,47 @@ about your agent changes. `python examples/langchain_demo.py` runs a real
 LangChain tool-calling loop (scripted fake model, so it's keyless) and shows
 AgentGuard stopping it 11 turns before the agent's own iteration cap.
 
+## Benchmarked on real agent runs
+
+Synthetic backtests are easy; here are the numbers on **300 real SWE-agent
+runs** ([nebius/SWE-agent-trajectories](https://huggingface.co/datasets/nebius/SWE-agent-trajectories)),
+deterministic predictors only, threshold 0.8:
+
+| | flagged | false alarms |
+|---|---|---|
+| runs that died of budget/context exhaustion (`exit_cost`/`exit_context`) | **41%**, mean **74 steps** before the end | — |
+| resolved (successful) runs | — | **12%** |
+
+At threshold 0.6 that trade is 56% / 18%. A run that submits a clean but
+*wrong* patch mid-flight often looks healthy — AgentGuard predicts
+dysfunction, not correctness, and the report says so explicitly. Full
+methodology, threshold sweep and caveats: [benchmarks/RESULTS.md](benchmarks/RESULTS.md)
+(reproduce with `python benchmarks/swe_agent_bench.py`).
+
+## Intervention policies + escalation
+
+Write the host's decision down once, instead of hand-rolling threshold
+checks in every loop:
+
+```python
+from agentguard.policy import Policy, Rule, SlackWebhook
+
+policy = Policy(
+    rules=[
+        Rule(signal="loop", threshold=0.8, action="reset_context"),
+        Rule(signal="budget_drift", threshold=0.7, sustain=3, action="downgrade"),
+        Rule(threshold=0.9, action="escalate"),        # fused risk, any cause
+    ],
+    notifiers=[SlackWebhook("https://hooks.slack.com/services/...")],
+)
+guard = Guard(predictors=[...], on_step=policy)
+```
+
+Triggered rules record an `Intervention` on the run and notify (Slack or
+any JSON webhook — payload includes sub-scores and the similar past
+failures from the failure memory). Enforcement still belongs to your
+loop; notifiers never raise into the run.
+
 ## Guarding agent teams (multi-agent / LangGraph)
 
 Multi-agent failures cascade: a researcher loops, hands garbage to the

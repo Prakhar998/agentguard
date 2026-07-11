@@ -12,7 +12,7 @@ from .guard import Guard, Intervention, Watcher
 from .multi import MultiGuard
 from .telemetry import Step, StepKind
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 logging.getLogger("agentguard").addHandler(logging.NullHandler())
 

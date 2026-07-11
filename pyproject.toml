@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "agentguard"
-version = "0.3.0"
+version = "0.4.0"
 description = "Predict LLM-agent-run failures in real time — and intervene before the tokens are spent"
 readme = "README.md"
 license = "MIT"

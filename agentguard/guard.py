@@ -95,6 +95,7 @@ class Guard:
         threshold: float = 0.8,
         aggregator: Optional[Aggregator] = None,
         memory: Optional[object] = None,
+        on_step: Optional[Callable[["Watcher"], None]] = None,
     ):
         self.predictor_specs = list(
             predictors if predictors is not None else ["loop", "tool_cascade", "budget_drift"]
@@ -103,6 +104,7 @@ class Guard:
         self.threshold = threshold
         self.aggregator = aggregator or Aggregator()
         self.memory = memory  # optional FailureMemory (agentguard.memory)
+        self.on_step = on_step  # e.g. a policy (agentguard.policy.Policy)
 
     def watch(self, run_id: Optional[str] = None, goal: Optional[str] = None) -> "Watcher":
         """``goal``: the task the run is trying to accomplish — enables
@@ -174,6 +176,9 @@ class Watcher:
                 self.guard.on_risk(self)
         elif self._risk < self.guard.threshold:
             self._above_threshold = False
+
+        if self.guard.on_step is not None:
+            self.guard.on_step(self)
 
         return self._risk
 
