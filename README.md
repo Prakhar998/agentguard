@@ -58,10 +58,12 @@ same ensemble (five bagged attention-MLPs + a Random Forest at double weight).
 ## Install
 
 ```bash
-pip install git+https://github.com/Prakhar998/agentguard   # zero-dependency core
-
-# extras (LangChain adapter, embeddings, Chroma memory, learned model, MCP):
-pip install "agentguard[langchain,embeddings,memory,model,mcp] @ git+https://github.com/Prakhar998/agentguard"
+pip install agentguard                 # zero-dependency core
+pip install "agentguard[langchain]"    # + LangChain callback adapter
+pip install "agentguard[embeddings]"   # + sentence-transformers drift detection
+pip install "agentguard[memory]"       # + Chroma-backed failure memory
+pip install "agentguard[model]"        # + the learned risk model (numpy/sklearn)
+pip install "agentguard[mcp]"          # + the MCP server
 ```
 
 ## The whole API is 8 lines
@@ -112,7 +114,7 @@ trustworthy as its calibration.
 ### The learned model
 
 ```bash
-pip install "agentguard[model] @ git+https://github.com/Prakhar998/agentguard"
+pip install "agentguard[model]"
 python -m agentguard.train        # bootstrap on labeled synthetic scenario runs
 ```
 
@@ -318,7 +320,7 @@ decides, with the sub-scores as the reason. Same discipline, new host.
 ## MCP server — agents that monitor themselves
 
 ```bash
-pip install "agentguard[mcp] @ git+https://github.com/Prakhar998/agentguard"
+pip install "agentguard[mcp]"
 claude mcp add agentguard -- agentguard mcp
 ```
 
