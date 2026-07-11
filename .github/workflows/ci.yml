@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  core:
+    # the zero-dependency promise: core tests need nothing but Python
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Run core tests (no dependencies installed)
+        run: python -m unittest discover -s tests -v
+
+  full:
+    # with every extra: learned model, LangChain adapter, MCP server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install with extras
+        run: pip install -e . numpy scikit-learn langchain-core mcp
+      - name: Run full suite
+        run: python -m unittest discover -s tests -v
+      - name: Demos run end-to-end
+        run: |
+          python examples/failing_agent_demo.py
+          python examples/rag_failing_demo.py
+          python examples/multiagent_demo.py
+          python examples/langchain_demo.py
+          agentguard replay --demo
